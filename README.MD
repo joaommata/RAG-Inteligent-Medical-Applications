@@ -1,15 +1,16 @@
-# Project Title
+# Chatbot Application with Langchain and Ollama RAG System
 
-A brief description of your project and what it does.
+This project is a chatbot application that utilizes Langchain and Ollama libraries to manage and process user queries using a large language model (LLM). The application uses a knowledge base created from PDF documents embedded into a vector database, allowing for semantic search and context-based question answering. Key features include:
+
+Vector Database: The application uses Chroma to create a vector database from PDF documents, enabling efficient semantic search.
+Context-Aware Question Answering: The chatbot can respond to user queries based on the context provided by the embedded documents.
+Feedback System: Users can provide feedback on responses as either "Good" or "Bad" to improve the chatbot's performance.
+PDF Document Management: The application allows users to upload, delete, and manage PDF documents within the vector database.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [Configuration](#configuration)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
 - [Contacts](#contacts)
 
 ## Installation
@@ -18,7 +19,7 @@ Instructions on how to install and set up your project:
 
 1. Clone the repository:
     ```shell
-    git clone https://github.com/yourusername/yourrepository.git
+    git clone https://github.com/joaommata/Project2024
     ```
 2. Change into the directory:
     ```shell
@@ -29,12 +30,16 @@ Instructions on how to install and set up your project:
     npm install
     ```
     
-Include any additional steps for installation as necessary.
-
 ## Usage
 
-Explain how to use your project with examples or code snippets:
+In order to initialize the chatbot in  a local host run the following command :
 
 ```shell
 # Example command to run your project
-./yourproject
+chainlit run scripts\appRAG.py
+```
+
+## Contacts
+
+- **João Mata**
+  - Email: [joao.m.mata@tecnico.ulisboa.pt](mailto:joao.m.mata@tecnico.ulisboa.pt)
