@@ -27,7 +27,8 @@ Instructions on how to install and set up your project:
     ```
 3. Install dependencies:
     ```shell
-I don't know how you should do it, yet hahahah ```
+    I don't know how you should do it, yet hahahah
+    ```
     
 ## Usage
 
