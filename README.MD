@@ -1,5 +1,7 @@
 # Chatbot Application with Langchain and Ollama RAG System
 
+![Chatbot User Interface when initialized](user_interface.png)
+
 This project is a chatbot application that utilizes Langchain and Ollama libraries to manage and process user queries using a large language model (LLM). The application uses a knowledge base created from PDF documents embedded into a vector database, allowing for semantic search and context-based question answering.
 
 **Key features include:**
