@@ -27,8 +27,7 @@ Instructions on how to install and set up your project:
     ```
 3. Install dependencies:
     ```shell
-    npm install
-    ```
+I don't know how you should do it, yet hahahah ```
     
 ## Usage
 
