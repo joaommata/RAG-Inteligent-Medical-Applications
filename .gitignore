@@ -1,0 +1,19 @@
+# Ignore directories
+/classifications/
+.vscode/
+/.chainlit/
+/dicom/
+/LLaVa/ 
+/notebooks/
+/vector_db/
+/joao_mata/
+/pdfs/
+
+# Ignore Python cache files
+**/__pycache__/
+
+# Ignore specific file
+chainlit.md
+
+
+
