@@ -1,11 +1,13 @@
 # Chatbot Application with Langchain and Ollama RAG System
 
-This project is a chatbot application that utilizes Langchain and Ollama libraries to manage and process user queries using a large language model (LLM). The application uses a knowledge base created from PDF documents embedded into a vector database, allowing for semantic search and context-based question answering. Key features include:
+This project is a chatbot application that utilizes Langchain and Ollama libraries to manage and process user queries using a large language model (LLM). The application uses a knowledge base created from PDF documents embedded into a vector database, allowing for semantic search and context-based question answering.
 
-Vector Database: The application uses Chroma to create a vector database from PDF documents, enabling efficient semantic search.
-Context-Aware Question Answering: The chatbot can respond to user queries based on the context provided by the embedded documents.
-Feedback System: Users can provide feedback on responses as either "Good" or "Bad" to improve the chatbot's performance.
-PDF Document Management: The application allows users to upload, delete, and manage PDF documents within the vector database.
+**Key features include:**
+
+- **Vector Database**: The application uses Chroma to create a vector database from PDF documents, enabling efficient semantic search.
+- **Context-Aware Question Answering**: The chatbot can respond to user queries based on the context provided by the embedded documents.
+- **Feedback System**: Users can provide feedback on responses as either "Good" or "Bad" to improve the chatbot's performance.
+- **PDF Document Management**: The application allows users to upload, delete, and manage PDF documents within the vector database.
 
 ## Table of Contents
 
