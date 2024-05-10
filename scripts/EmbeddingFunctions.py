@@ -30,16 +30,17 @@ def add_pdf_to_vectorstore(text_file, id_str, collection, DELIMITER):
         # Add the text from the uploaded PDF to the vectorstore by embedding it and adding it to the collection
         import ollama  # Import the missing module
         loader = PyPDFLoader(text_file.path)
-        documents = loader.load()
-        #texts = [str(text) for text in loader.load()]
+        '''
         text_splitter = RecursiveCharacterTextSplitter(
     # Set a really small chunk size, just to show.
                     chunk_size=1000,
                     chunk_overlap=200,
                     length_function=len,
                     is_separator_regex=False,)
+
         texts = text_splitter.split_documents(documents)
-        #texts = [str(text) for text in loader.load_and_split()]
+         '''
+        texts = [str(text) for text in loader.load_and_split()]
         for i, d in enumerate(texts):
             response = ollama.embeddings(model="mxbai-embed-large", prompt=d)
             embedding = response["embedding"]

@@ -26,7 +26,7 @@ def get_pixel_data(path):
 def view_dicom(path, index):
     pixels = get_pixel_data(path)
     print(pixels[index])
-    plt.imshow(pixels, cmap=plt.cm.bone)
+    plt.imshow(pixels[index], cmap=plt.cm.bone)
     return 
 
 

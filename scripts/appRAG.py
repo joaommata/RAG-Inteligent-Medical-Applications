@@ -108,15 +108,12 @@ async def on_message(message: cl.Message):
     
     # Get the documents relevant to the message, extract text, and update the context
     used_context = retriever.get_relevant_documents(msg.content)
-    search_scores = vector_db.similarity_search_with_score(msg.content)
     print(f"Number of retrieved documents: {len(used_context)}")
     #print(used_context) # to check
     text_from_documents = [doc.page_content for doc in used_context]
     writer.update_context(text_from_documents)
     
-    
-    
-     # Set the actions for the message and write history, context and classifications to the JSON file
+    # Set the actions for the message and write history, context and classifications to the JSON file
     msg.actions = actions
     writer.write()
     await msg.send()
