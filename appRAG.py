@@ -13,8 +13,8 @@ import chainlit as cl
 from chainlit.input_widget import Select
 import chromadb
 import ollama
-from ClassificationWriter import ClassificationWriter, generate_random_id
-from EmbeddingFunctions import *
+from scripts.ClassificationWriter import ClassificationWriter, generate_random_id
+from scripts.EmbeddingFunctions import *
 from langchain_community.embeddings import HuggingFaceEmbeddings
 import shutil
 import torch

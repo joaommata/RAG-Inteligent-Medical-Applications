@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from EmbeddingFunctions import *
+from scripts.EmbeddingFunctions import *
 from fastapi import UploadFile, File
 from appRAG import *
 
