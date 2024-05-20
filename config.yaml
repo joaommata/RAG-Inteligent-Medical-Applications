@@ -1,0 +1,9 @@
+embeddings_framework: ollama
+embeddings_model: mxbai-embed-large
+chat_framework: ollama
+chat_model: llama3
+temperature: 0
+delimiter: //
+threshold: 0.5
+chunk_size: 2500
+chunk_overlap: 100

@@ -16,5 +16,5 @@ setup(
     author_email='joao.m.mata@tecnico.ulisboa.pt',
     url='https://github.com/joaommata/Project2024',
     license=license,
-    packages=find_packages(exclude=('tests', 'docs'))
+    packages=find_packages(exclude=('tests', 'docs')) #??
 )

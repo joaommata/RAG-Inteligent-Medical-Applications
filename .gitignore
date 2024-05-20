@@ -8,7 +8,6 @@
 /vector_db/
 /joao_mata/
 /pdfs/
-
 # Ignore Python cache files
 **/__pycache__/
 
@@ -18,3 +17,9 @@ scripts\TestingRetrieval.py
 
 
 
+scripts/TestingRetrieval.py
+lalala.py
+scripts/appRAG.py
+scripts/ClassificationWriter.py
+scripts/EmbeddingFunctions.py
+scripts/chroma_db_multilingual/chroma.sqlite3
