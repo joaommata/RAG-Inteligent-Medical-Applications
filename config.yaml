@@ -4,6 +4,9 @@ chat_framework: ollama
 chat_model: llama3
 temperature: 0
 delimiter: //
-threshold: 0.5
+threshold: 0.7
 chunk_size: 2500
 chunk_overlap: 100
+k: 1
+collection: dicom_files
+

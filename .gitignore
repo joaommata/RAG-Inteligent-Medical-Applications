@@ -8,6 +8,8 @@
 /vector_db/
 /joao_mata/
 /pdfs/
+/dicoms/
+
 # Ignore Python cache files
 **/__pycache__/
 
