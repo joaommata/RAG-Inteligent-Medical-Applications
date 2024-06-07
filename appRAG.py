@@ -14,7 +14,7 @@ from chainlit.input_widget import Select
 import chromadb
 import ollama
 from scripts.ClassificationWriter import ClassificationWriter, generate_random_id
-from scripts.EmbeddingFunctions import *
+from EmbeddingFunctions import *
 from langchain_community.embeddings import HuggingFaceEmbeddings
 import shutil
 import torch
@@ -24,7 +24,7 @@ import string  # assuming you'll need it for generating random IDs
 config_path = "config.yaml"
 config=read_config(config_path)
 
-collection = config['collection']
+collection = "pdf_docs"
 embeddings_framework = config["embeddings_framework"]
 embeddings_model = config["embeddings_model"]
 chat_framework = config["chat_framework"]
@@ -100,9 +100,8 @@ async def on_message(message: cl.Message):
     random_id = generate_random_id(id_length, id_chars)
     # Update chat history with the message content
     writer.update_chat_history(random_id, message.content)
-    similars = get_number_relevant_documents(vector_db, message.content, threshold)
-    print(f"Documents with distance below the threshold: {similars}")
-    
+    similars = get_number_relevant_documents(vector_db, message.content, threshold, collection)
+    print(f"Documents with distance below the threshold: {similars}")    
     if similars == 0:
             '''If no document has a distance below the threshold, there should be no added context.  '''
             runnable = (
@@ -131,6 +130,10 @@ async def on_message(message: cl.Message):
             # Get the documents relevant to the message, extract text, and update the context
             used_context = retriever.get_relevant_documents(msg.content,
                                                                     search_kwargs={'k': similars})
+            
+            used_pdfs = list(set([doc.metadata.get('source') for doc in used_context]))
+            print(used_pdfs)
+            
             #print(f"Number of retrieved documents: {len(used_context)}")
             #print(used_context) # to check
             text_from_documents = [doc.page_content for doc in used_context]
@@ -142,7 +145,7 @@ async def on_message(message: cl.Message):
             
             search_scores = vector_db.similarity_search_with_score(message.content,100000)
             await cl.Message(
-                        content=f" Number of documents found with a cosine distance below `{threshold}`: `{similars}`").send()
+                        content=f" Number of documents found with a cosine distance below `{threshold}`: `{similars}` \n Used documents from: {used_pdfs}").send()
             print( f"The cosine distance for each of the `{n}` documents: \n `{[score for doc_id, score in search_scores[:n]]}")
                     
     ai_response_content =[]
@@ -232,6 +235,6 @@ async def on_action(action):
 async def on_action(action):
     global collection  # Use global keyword to access the global variable
     client = chromadb.PersistentClient(path='vector_db')
-    client.delete_collection('pdf_docs')
+    vector_db, collection = initialize_vector_database("vector_db", collection, "vector_db", embeddings_framework, embeddings_model)
+    client.delete_collection(collection)
     await cl.Message(content=f"Database was reset and is now empty. Re-opem the chatbot to initialize a new collection.").send()
-    vector_db, collection = initialize_vector_database("vector_db", "pdf_docs", "vector_db", embeddings_framework, embeddings_model)

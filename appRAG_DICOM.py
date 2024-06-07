@@ -14,7 +14,7 @@ from chainlit.input_widget import Select
 import chromadb
 import ollama
 from scripts.ClassificationWriter import ClassificationWriter, generate_random_id
-from scripts.EmbeddingFunctions import *
+from EmbeddingFunctions import *
 from langchain_community.embeddings import HuggingFaceEmbeddings
 import shutil
 import torch
@@ -23,11 +23,13 @@ import string  # assuming you'll need it for generating random IDs
 import pydicom
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from DICOMFunctions import extract_study_description, extract_series_description, extract_series_id_from_text, apply_methods, plot_images, detect_triggers
+import os
 
 config_path = "config.yaml"
+dicoms_path = r"C:\Users\CCIG\joao_mata\DICOMS"
 config=read_config(config_path)
-
-collection = config['collection']
+collection = "dicom_files"
 embeddings_framework = config["embeddings_framework"]
 embeddings_model = config["embeddings_model"]
 chat_framework = config["chat_framework"]
@@ -38,43 +40,39 @@ threshold = config["threshold"]
 chunk_size = config["chunk_size"]
 chunk_overlap = config["chunk_overlap"]
 k = config["k"]
-
-output_png_path = 'output_image.png'
+output_png_path = config["output_png_path"]
 
 #Initialize Database and LLM
-vector_db, collection = initialize_vector_database("vector_db", config["collection"], "vector_db", config["embeddings_framework"], config["embeddings_model"])
+vector_db, collection = initialize_vector_database("vector_db", "dicom_files", "vector_db", config["embeddings_framework"], config["embeddings_model"])
 llm = get_chat_model(chat_framework, chat_model)
-#llm = Ollama(model="llama3", temperature = 0)
-
-documents = collection.get()
-ids = documents['ids']
-print(ids)
 
 # Define a template for the chat
-template = """Use only the given context to answer the question. 
-You can not use any knowledge that isn't present in the context.
-If you can't answer the question using only the provided context say 'I don't have enough context to answer the question'". 
-Don't make up an answer.
+template = """Use only the given DICOM metadata to answer the question. 
+You can not use any knowledge that isn't present in the DICOM file.
+Search the dicom files for the answer. 
+Don't make up an answer. Don't say "according to the context" in the beggining of the answer.
 context: {context}
-question: {question} according to the provided context?
+question: {question} according to the provided DICOM files?
 
 Answer:"""
 prompt = ChatPromptTemplate.from_template(template)
 
+template_chat = """Just be conversational and answer the follwoing message in a polite way.
+question: {question}"""
+
 # Starting an instance of the class
 writer = ClassificationWriter()
 
-'''
+
 actions = [
-        cl.Action(name="Select pdf", value="upload_pdf", description="Upload PDF Documents"),
-        cl.Action(name="Delete Document from DB", value="delete_doc", description="Choose a document to delete"),
+
         cl.Action(name="Good Answer", value="True", description="Provide Feedback"),
         cl.Action(name="Bad Answer", value="False", description="Provide Feedback"),
-        cl.Action(name="Clear Database", value="delete", description="Delete all embedded documents")
+        cl.Action(name="Clear Database", value="delete", description="Delete all embedded documents"),
+        cl.Action(name="Show Studies in Database", value="show", description="Show all studies in the database")
     ]
-'''
+
 # ------------------------------------STARTING THE CHAT----------------------------------------------------
-# ------------\---------------------------------------------------------------------------------------------
 
 # Define a function to be called when the chat starts
 @cl.on_chat_start
@@ -92,116 +90,173 @@ async def on_chat_start():
     #print(ids)
     msg = cl.Message(
         content=f"Documents stored in the database:`{ids}`. Ask a question or add new documents.")
-    #msg.actions = actions
+    msg.actions = actions
     await msg.send()
 
 
 # ------------------------------------HANDLING INCOMING MESSAGES-------------------------------------------
-# ---------------------------------------------------------------------------------------------------------
 
 # Define a function to be called when a message is received
 @cl.on_message
 async def on_message(message: cl.Message):
+    written_answer = True
     msg = cl.Message(content="")
     image=None
-    # Generate a random ID
-    id_length = 6
-    id_chars = string.ascii_uppercase + string.digits
-    random_id = generate_random_id(id_length, id_chars)
-    # Update chat history with the message content
-    writer.update_chat_history(random_id, message.content)
-    similars = get_number_relevant_documents(vector_db, message.content, threshold)
-    #print(f"Documents with distance below the threshold: {similars}")
+    trigger, model_selection = detect_triggers(llm, message.content)
+    print(f"Trigger: {trigger}, Model Selection: {model_selection}")
+    similars = 1
     
-    if similars == 0:
-            '''If no document has a distance below the threshold, there should be no added context.  '''
-            runnable = (
+    if trigger == "chat":
+        written_answer = False
+        
+        prompt = ChatPromptTemplate.from_template(template_chat)
+
+        runnable = (
                 {"context": RunnablePassthrough(), "question": RunnablePassthrough()}
                 | prompt
                 | llm
                 | StrOutputParser()
                 )
-            #await cl.Message(
-            #    content=f" There were no documents found with a cosine distance below `{threshold}`. Ask a different question or upload new files to the database").send()
-    else:
-            #VOU TIRAR ESTA CENA
-            #retriever = vector_db.as_retriever(
-            #       search_kwargs={'k': similars})
+        ai_response_content =[]
+        # Run the runnable pipeline asynchronously. This will generate a response from the language model for each question in the message content.
+        async for chunk in runnable.astream(
+            {"question": message.content},
+            config=RunnableConfig(callbacks=[cl.LangchainCallbackHandler()]),
+        ): 
+        
+            ai_response_content.append(chunk)
+            await msg.stream_token(chunk)
             
-            retriever = vector_db.as_retriever(
-                  search_kwargs={'k': k})
-            retrieved_documents = retriever.get_relevant_documents(message.content, search_kwargs={'k': k})
-            print(retrieved_documents)
-            content = [doc.page_content for doc in retrieved_documents] 
-            document_parts = content[0].split()
-            for i, part in enumerate(document_parts):
-                if part == "Instance" and document_parts[i + 1] == "Number":
-                    instance_index = i + 3  # Get the index of the value associated with "Instance Number"
-                    instance_value = document_parts[instance_index]
-            print("Instance Number:", instance_value)
-                        
+        complete_ai_response = ''.join(ai_response_content)
+        await msg.send()
+        return complete_ai_response
+    
+    
+    # NOT JUST CHAT, ITS WORK TIME
+    else:          
+            await cl.Message(content=f"User Requested: {trigger}").send()
+            
+            if trigger == "process":
+                written_answer = False
+                description_by_user = await cl.AskUserMessage(content=f"Describe the series of images where you wish to apply {model_selection}:", timeout=20).send()
+                if description_by_user is not None and 'output' in description_by_user:
+                    description = description_by_user['output']
+                    print(description)  # Do something with the description
+                else:
+                    print("No description provided by the user or an error occurred.")
+                    description_by_user = await cl.AskUserMessage(content=f"Describe the series of images where you wish to apply {model_selection}:", timeout=20).send()
+
+                # Get the context from the user
+                retriever = vector_db.as_retriever(
+                   search_kwargs={'k': 1})   
+                
+                retrieved_documents = retriever.invoke(message.content, search_kwargs={'k': similars})
+                for document in retrieved_documents:
+                    metadata = document.metadata
+                    source_name = metadata.get('source')
+                    series_path = os.path.dirname(source_name)
+                    
+                source_folder = os.path.join(r"C:\Users\CCIG\joao_mata\DICOMS", series_path)
+                #print(source_folder)
+                method = str(model_selection.lower())
+                #print(method)
+                image_arrays, series_description, title = apply_methods(method, source_folder)
+                #print(series_description, title)
+                
+                plot_images(title, image_arrays, series_description)
+                
+                image = cl.Image(path=r"C:\Users\CCIG\joao_mata\processed_image.png", name="processed_image", display="inline")
+
+                # Attach the image to the message
+                await cl.Message(
+                    content=f"Image Series: {series_description} \n Applied Method: {method}",
+                    elements=[image],
+                ).send()
+                
+                    
+            # If the user is asking to see an image, display the image in the chat
+            if trigger == "show":
+                written_answer = False
+                matching_files = []
+                
+                retriever = vector_db.as_retriever(
+                   search_kwargs={'k': similars})
+            
+                retrieved_documents = retriever.invoke(message.content, search_kwargs={'k': similars})
+                for document in retrieved_documents:
+                    metadata = document.metadata
+                source_name = metadata.get('source')
+                for document in retrieved_documents:
+                    metadata = document.metadata
+                    #print(metadata)
+                    
+                    study_description = extract_study_description(document.page_content)
+                    #print(f"Study description: {study_description}")
+                    
+                    series_description = extract_series_description(document.page_content)
+                    #print(f"Series description: {series_description}")
+                    
+                    series_id = extract_series_id_from_text(document.page_content)
+                    #print(f"Series ID: {series_id}")
+                    
+                    
+                    for filename in os.listdir('videos'):
+                        if series_id in filename.replace("_", "."):
+                            if filename not in matching_files:
+                                matching_files.append(filename)
+                
+                short_summary = llm.invoke(f"You're a scientific summarizer, summarize this information: {series_description}, {study_description}, ")
+
+                # Print the matching files for debugging
+                print(f"Matching Files \n", matching_files)
+                
+                if matching_files == []:    
+                    await cl.Message(content="No videos found for the given study and series description.").send()
+
+                for match in matching_files:
+                    video_path = rf"videos\{match}"
+                    print(f"Video path: {video_path}")
+                    video = cl.Video(path=video_path, name=match, display="inline")
+
+                    # Send the message with the video element and its label (series description)
+                    await cl.Message(
+                        #content=f"Study Description: {study_description} \n Series Description: {series_description}",
+                        content = f"Retrieved images: {series_description} \n {study_description} \n {series_id} \n {short_summary}",
+                        elements=[video],
+                    ).send()
+
+            prompt = ChatPromptTemplate.from_template(template) 
         # Get the context from the user
             ''' Define a runnable pipeline for the chat. The pipeline takes a context from the retriever and a question from the message,
             # generates a prompt using the context and question, gets a response from the language model, and parses the response into a string. '''
-            question = message.content
             runnable = (
                 {"context": retriever, "question": RunnablePassthrough()}
                 | prompt
                 | llm
                 | StrOutputParser()
             )
-            
-            #IMAGE PART - SO TRICKY
-            image_trigger = "NO IMAGE REQUESTED"
-            image_trigger = runnable.invoke("You are a classifier. Analise the following question, if the user is asking to see an image, you should reply with only the word image and nothing else. no explanation, just the word." + question)
-            print(image_trigger)
-            
-            if image_trigger == "IMAGE" or image_trigger == "image" or image_trigger == "Image":
-                ds = pydicom.dcmread(f"dicoms/image-000{instance_value}.dcm")
-                pixel_array = ds.pixel_array
-                pixel_array_normalized = ((pixel_array - pixel_array.min()) / (pixel_array.max() - pixel_array.min()) * 255).astype('uint8')
-                plt.imsave(output_png_path, pixel_array_normalized, cmap='gray')
-                image = cl.Image(path=output_png_path, name="image", display="inline")
-                
-            # Get the documents relevant to the message, extract text, and update the context
-            used_context = retriever.get_relevant_documents(msg.content, search_kwargs={'k': k})
-            #print(f"Number of retrieved documents: {len(used_context)}")
-            #print(used_context) # to check
-            text_from_documents = [doc.page_content for doc in used_context]
-            writer.update_context(text_from_documents)
-            #print(f"Number of retrieved documents: {len(used_context)}")
-                    #print(used_context) # This will print the retrieved documents
-            
-            n=len(used_context)
-            
-            search_scores = vector_db.similarity_search_with_score(message.content,100000)
-            await cl.Message(
-                        #content=f" Number of documents found with a cosine distance below `{threshold}`: `{similars}`",
-                        content = "The image you requested is displayed below",
-                        elements=[image]).send()
-            #print( f"The cosine distance for each of the `{n}` documents: \n `{[score for doc_id, score in search_scores[:n]]}")
-                    
-    ai_response_content =[]
-    # Run the runnable pipeline asynchronously. This will generate a response from the language model for each question in the message content.
-    async for chunk in runnable.astream(
-        {"question": message.content},
-        config=RunnableConfig(callbacks=[cl.LangchainCallbackHandler()]),
-    ): 
     
-        ai_response_content.append(chunk)
-        await msg.stream_token(chunk)
+    if written_answer:
+        #search_scores = vector_db.similarity_search_with_score(message.content,100000)
+        #n = len(retrieved_documents)
+        #print( f"The cosine distance for each of the `{n}` documents: \n `{[score for doc_id, score in search_scores[:n]]}")
+            
+        ai_response_content =[]
+        # Run the runnable pipeline asynchronously. This will generate a response from the language model for each question in the message content.
+        async for chunk in runnable.astream(
+            {"question": message.content},
+            config=RunnableConfig(callbacks=[cl.LangchainCallbackHandler()]),
+        ): 
         
-    complete_ai_response = ''.join(ai_response_content)
-    writer.update_chat_history(random_id, complete_ai_response)
-
-    # Set the actions for the message and write history, context and classifications to the JSON file
-    #msg.actions = actions
-    writer.write()    
-    await msg.send()
-    return complete_ai_response
+            ai_response_content.append(chunk)
+            await msg.stream_token(chunk)
+            
+        complete_ai_response = ''.join(ai_response_content)
+        msg.actions = actions
+        await msg.send()
+        return complete_ai_response
 
 # ------------------------------------BUTTON CALLBACKS ----------------------------------------------------
-# ---------------------------------------------------------------------------------------------------------
 
 @cl.action_callback("Good Answer") # Positive Feedback
 async def on_action(action):
@@ -212,60 +267,6 @@ async def on_action(action):
 async def on_action(action):
     classification = "Bad"
     writer.update_classifications(classification)
-    
-'''
-@cl.action_callback("Select pdf") # Upload PDF, choose ID, and embed in the database
-async def on_action(action): 
-    files = None
-    # Wait for the user to upload a file
-    files = await cl.AskFileMessage(
-        content="Please upload a pdf file to add to the knowledge database!", accept=["application/pdf"]
-        ).send()
-    text_file = files[0]
-    # Let the user know that the file has been uploaded and is being processed    
-    await cl.Message( content=f"`{text_file.name}` uploaded! Processing the file..." ).send()
-    
-    # Ask the user for input id, convert to string
-    id = await cl.AskUserMessage(content="Choose document id (write below and send)", timeout=10).send()   
-    id_str = str(id['output'])
-    
-    #add_pdf_to_vectorstore_simple(text_file, id_str, collection, delimiter, embeddings_framework, embeddings_model)
-    add_pdf_to_vectorstore_complete(text_file, id_str, collection, delimiter, embeddings_framework, embeddings_model, chunk_size, chunk_overlap)
-    
-     # Print the number of documents in the collection to check if changes were made
-    print(f"Number of documents in the database: {collection.count()}")
-
-    #Confirm the embeddings were succesful
-    msg = cl.Message(
-        content=f"`{text_file.name}` embedded in the knowledge database! Ready to use. \n Documents on the database: `{get_document_prefixes(collection, delimiter)}`")
-    msg.actions = actions
-    await msg.send()
-    
-    
-@cl.action_callback("Delete Document from DB") 
-async def on_action(action):
-
-    pref_list = get_document_prefixes(collection, delimiter)
-    await cl.Message(
-        content=f"List of documents embedded in the database: \n`{pref_list}").send()
-    id = await cl.AskUserMessage(content="Choose document id you wish to delete from the list above", timeout=10).send()  
-    id_to_delete = str(id['output']) 
-    docs_to_delete = [doc_id for doc_id in collection.get().get('ids', []) if doc_id.startswith(id_to_delete)]
-    if docs_to_delete:
-            # Delete documents with the selected prefix
-            collection.delete(ids=docs_to_delete)
-            msg = cl.Message(content=f"Deleted documents with prefix: {id_to_delete} \n Number of documents in the database: {collection.count()} \n You can continue asking questions about the remaining documents")
-            msg.actions = actions
-            await msg.send()
-            print(f"Deleted documents with prefix: {id_to_delete}")
-    else:
-            print(f"No documents found with prefix: {id_to_delete}")
-            msg = cl.Message(content="No documents found with the selected prefix. Please choose a different prefix.")
-            msg.actions = actions
-            await msg.send()
-        
-    print(f"Number of documents in the database: {collection.count()} \n You can continue asking questions about the remaining documents")
-'''
 
 @cl.action_callback("Clear Database") # deleting
 async def on_action(action):
@@ -274,3 +275,8 @@ async def on_action(action):
     client.delete_collection('pdf_docs')
     await cl.Message(content=f"Database was reset and is now empty. Re-opem the chatbot to initialize a new collection.").send()
     vector_db, collection = initialize_vector_database("vector_db", collection, "vector_db", embeddings_framework, embeddings_model)
+    
+@cl.action_callback("Show Studies in Database") # Show all studies in the database
+async def on_action(action):
+    folders = [folder for folder in os.listdir(dicoms_path) if os.path.isdir(os.path.join(dicoms_path, folder))]
+    await cl.Message(content=f"Documents stored in the database:`{folders}`").send()

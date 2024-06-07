@@ -7,8 +7,15 @@
 /notebooks/
 /vector_db/
 /joao_mata/
+/joao_mata_pic/
 /pdfs/
 /dicoms/
+/videos/
+/images/
+/scripts/
+/.files/
+
+
 
 # Ignore Python cache files
 **/__pycache__/
@@ -19,9 +26,20 @@ scripts\TestingRetrieval.py
 
 
 
-scripts/TestingRetrieval.py
+/scripts/
 lalala.py
 scripts/appRAG.py
 scripts/ClassificationWriter.py
 scripts/EmbeddingFunctions.py
 scripts/chroma_db_multilingual/chroma.sqlite3
+AUROC.py
+
+metrics.png
+output.png
+precision_recall.png
+processed_image.png
+results.csv
+results.json
+roc.png
+Evaluation.csv
+Evaluation.json
