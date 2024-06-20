@@ -39,11 +39,11 @@ delimiter = config["delimiter"]
 threshold = config["threshold"]
 chunk_size = config["chunk_size"]
 chunk_overlap = config["chunk_overlap"]
-k = config["k"]
+k = 1
 output_png_path = config["output_png_path"]
 
 #Initialize Database and LLM
-vector_db, collection = initialize_vector_database("vector_db", "dicom_files", "vector_db", config["embeddings_framework"], config["embeddings_model"])
+vector_db, collection = initialize_vector_database("vector_db", "dicomdb", "vector_db", config["embeddings_framework"], config["embeddings_model"])
 llm = get_chat_model(chat_framework, chat_model)
 
 # Define a template for the chat
@@ -85,11 +85,8 @@ async def on_chat_start():
         | llm
         | StrOutputParser()
     )
-    #msg = cl.Message(content="")
-    ids = get_document_prefixes(collection, delimiter)
-    #print(ids)
     msg = cl.Message(
-        content=f"Documents stored in the database:`{ids}`. Ask a question or add new documents.")
+        content=f"Number of DICOM slices stored in the database:`{collection.count()}`. Ask a question or add new documents.")
     msg.actions = actions
     await msg.send()
 
@@ -101,14 +98,19 @@ async def on_chat_start():
 async def on_message(message: cl.Message):
     written_answer = True
     msg = cl.Message(content="")
-    image=None
+    
+    actions_after = [
+
+        cl.Action(name="Yes, Confirm", value="True", description="Provide Feedback"),
+        cl.Action(name="No, Go back", value="False", description="Provide Feedback") ]
+    
     trigger, model_selection = detect_triggers(llm, message.content)
     print(f"Trigger: {trigger}, Model Selection: {model_selection}")
+    
     similars = 1
     
     if trigger == "chat":
         written_answer = False
-        
         prompt = ChatPromptTemplate.from_template(template_chat)
 
         runnable = (
@@ -134,7 +136,9 @@ async def on_message(message: cl.Message):
     
     # NOT JUST CHAT, ITS WORK TIME
     else:          
-            await cl.Message(content=f"User Requested: {trigger}").send()
+            msg = cl.Message(content=f"User Requested: {trigger}")
+            msg.actions = actions_after
+            await msg.send()
             
             if trigger == "process":
                 written_answer = False
@@ -179,10 +183,9 @@ async def on_message(message: cl.Message):
                 written_answer = False
                 matching_files = []
                 
-                retriever = vector_db.as_retriever(
-                   search_kwargs={'k': similars})
-            
-                retrieved_documents = retriever.invoke(message.content, search_kwargs={'k': similars})
+                
+                            
+                #retrieved_documents = retriever.invoke(message.content, search_kwargs={'k': similars})
                 for document in retrieved_documents:
                     metadata = document.metadata
                 source_name = metadata.get('source')
