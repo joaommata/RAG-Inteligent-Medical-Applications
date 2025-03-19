@@ -1,4 +1,5 @@
 # Chatbot Application with Langchain and Ollama RAG System
+## (Not Finished)
 
 ![Chatbot User Interface when initialized](user_interface.png)
 
